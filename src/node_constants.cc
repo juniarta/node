@@ -19,8 +19,10 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+#include "env-inl.h"
 #include "node_constants.h"
 #include "node_internals.h"
+#include "util-inl.h"
 
 #include "zlib.h"
 

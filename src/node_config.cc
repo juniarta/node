@@ -1,4 +1,5 @@
 #include "env-inl.h"
+#include "memory_tracker.h"
 #include "node.h"
 #include "node_i18n.h"
 #include "node_native_module_env.h"
@@ -21,7 +22,8 @@ using v8::Value;
 
 static void Initialize(Local<Object> target,
                        Local<Value> unused,
-                       Local<Context> context) {
+                       Local<Context> context,
+                       void* priv) {
   Environment* env = Environment::GetCurrent(context);
   Isolate* isolate = env->isolate();
 

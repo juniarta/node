@@ -75,7 +75,7 @@ class V8CoverageConnection : public V8ProfilerConnection {
   void Start() override;
   void End() override;
 
-  const char* type() const override { return type_.c_str(); }
+  const char* type() const override { return "coverage"; }
   bool ending() const override { return ending_; }
 
   std::string GetDirectory() const override;
@@ -85,7 +85,6 @@ class V8CoverageConnection : public V8ProfilerConnection {
  private:
   std::unique_ptr<inspector::InspectorSession> session_;
   bool ending_ = false;
-  std::string type_ = "coverage";
 };
 
 class V8CpuProfilerConnection : public V8ProfilerConnection {
@@ -96,7 +95,7 @@ class V8CpuProfilerConnection : public V8ProfilerConnection {
   void Start() override;
   void End() override;
 
-  const char* type() const override { return type_.c_str(); }
+  const char* type() const override { return "CPU"; }
   bool ending() const override { return ending_; }
 
   std::string GetDirectory() const override;
@@ -106,7 +105,26 @@ class V8CpuProfilerConnection : public V8ProfilerConnection {
  private:
   std::unique_ptr<inspector::InspectorSession> session_;
   bool ending_ = false;
-  std::string type_ = "CPU";
+};
+
+class V8HeapProfilerConnection : public V8ProfilerConnection {
+ public:
+  explicit V8HeapProfilerConnection(Environment* env)
+      : V8ProfilerConnection(env) {}
+
+  void Start() override;
+  void End() override;
+
+  const char* type() const override { return "heap"; }
+  bool ending() const override { return ending_; }
+
+  std::string GetDirectory() const override;
+  std::string GetFilename() const override;
+  v8::MaybeLocal<v8::Object> GetProfile(v8::Local<v8::Object> result) override;
+
+ private:
+  std::unique_ptr<inspector::InspectorSession> session_;
+  bool ending_ = false;
 };
 
 }  // namespace profiler

@@ -22,6 +22,7 @@
 #include "tls_wrap.h"
 #include "async_wrap-inl.h"
 #include "debug_utils.h"
+#include "memory_tracker-inl.h"
 #include "node_buffer.h"  // Buffer
 #include "node_crypto.h"  // SecureContext
 #include "node_crypto_bio.h"  // NodeBIO
@@ -912,6 +913,15 @@ void TLSWrap::EnableSessionCallbacks(
                             wrap);
 }
 
+void TLSWrap::EnableKeylogCallback(
+    const FunctionCallbackInfo<Value>& args) {
+  TLSWrap* wrap;
+  ASSIGN_OR_RETURN_UNWRAP(&wrap, args.Holder());
+  CHECK_NOT_NULL(wrap->sc_);
+  SSL_CTX_set_keylog_callback(wrap->sc_->ctx_.get(),
+      SSLWrap<TLSWrap>::KeylogCallback);
+}
+
 // Check required capabilities were not excluded from the OpenSSL build:
 // - OPENSSL_NO_SSL_TRACE excludes SSL_trace()
 // - OPENSSL_NO_STDIO excludes BIO_new_fp()
@@ -929,9 +939,9 @@ void TLSWrap::EnableTrace(
 
 #if HAVE_SSL_TRACE
   if (wrap->ssl_) {
-    BIO* b = BIO_new_fp(stderr,  BIO_NOCLOSE | BIO_FP_TEXT);
+    wrap->bio_trace_.reset(BIO_new_fp(stderr,  BIO_NOCLOSE | BIO_FP_TEXT));
     SSL_set_msg_callback(wrap->ssl_.get(), SSL_trace);
-    SSL_set_msg_callback_arg(wrap->ssl_.get(), b);
+    SSL_set_msg_callback_arg(wrap->ssl_.get(), wrap->bio_trace_.get());
   }
 #endif
 }
@@ -1024,6 +1034,14 @@ int TLSWrap::SelectSNIContextCallback(SSL* s, int* ad, void* arg) {
   Local<Object> object = p->object();
   Local<Value> ctx;
 
+  // Set the servername as early as possible
+  Local<Object> owner = p->GetOwner();
+  if (!owner->Set(env->context(),
+                  env->servername_string(),
+                  OneByteString(env->isolate(), servername)).FromMaybe(false)) {
+    return SSL_TLSEXT_ERR_NOACK;
+  }
+
   if (!object->Get(env->context(), env->sni_context_string()).ToLocal(&ctx))
     return SSL_TLSEXT_ERR_NOACK;
 
@@ -1105,6 +1123,7 @@ void TLSWrap::Initialize(Local<Object> target,
   env->SetProtoMethod(t, "start", Start);
   env->SetProtoMethod(t, "setVerifyMode", SetVerifyMode);
   env->SetProtoMethod(t, "enableSessionCallbacks", EnableSessionCallbacks);
+  env->SetProtoMethod(t, "enableKeylogCallback", EnableKeylogCallback);
   env->SetProtoMethod(t, "enableTrace", EnableTrace);
   env->SetProtoMethod(t, "destroySSL", DestroySSL);
   env->SetProtoMethod(t, "enableCertCb", EnableCertCb);

@@ -1,6 +1,7 @@
 #include "env.h"
 
 #include "async_wrap.h"
+#include "memory_tracker-inl.h"
 #include "node_buffer.h"
 #include "node_context_data.h"
 #include "node_errors.h"
@@ -13,6 +14,7 @@
 #include "node_worker.h"
 #include "tracing/agent.h"
 #include "tracing/traced_value.h"
+#include "util-inl.h"
 #include "v8-profiler.h"
 
 #include <algorithm>

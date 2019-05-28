@@ -338,7 +338,7 @@ assert.strictEqual(
 
   const value = {};
   value.a = value;
-  assert.strictEqual(util.inspect(value), '{ a: [Circular] }');
+  assert.strictEqual(util.inspect(value), '<ref *1> { a: [Circular *1] }');
 }
 
 // Array with dynamic properties.
@@ -853,6 +853,13 @@ util.inspect({ hasOwnProperty: null });
 }
 
 {
+  const subject = { [util.inspect.custom]: common.mustCall((depth) => {
+    assert.strictEqual(depth, null);
+  }) };
+  util.inspect(subject, { depth: null });
+}
+
+{
   // Returning `this` from a custom inspection function works.
   const subject = { a: 123, [util.inspect.custom]() { return this; } };
   const UIC = 'nodejs.util.inspect.custom';
@@ -993,7 +1000,7 @@ if (typeof Symbol !== 'undefined') {
 {
   const set = new Set();
   set.add(set);
-  assert.strictEqual(util.inspect(set), 'Set { [Circular] }');
+  assert.strictEqual(util.inspect(set), '<ref *1> Set { [Circular *1] }');
 }
 
 // Test Map.
@@ -1011,12 +1018,32 @@ if (typeof Symbol !== 'undefined') {
 {
   const map = new Map();
   map.set(map, 'map');
-  assert.strictEqual(util.inspect(map), "Map { [Circular] => 'map' }");
+  assert.strictEqual(inspect(map), "<ref *1> Map { [Circular *1] => 'map' }");
   map.set(map, map);
-  assert.strictEqual(util.inspect(map), 'Map { [Circular] => [Circular] }');
+  assert.strictEqual(
+    inspect(map),
+    '<ref *1> Map { [Circular *1] => [Circular *1] }'
+  );
   map.delete(map);
   map.set('map', map);
-  assert.strictEqual(util.inspect(map), "Map { 'map' => [Circular] }");
+  assert.strictEqual(inspect(map), "<ref *1> Map { 'map' => [Circular *1] }");
+}
+
+// Test multiple circular references.
+{
+  const obj = {};
+  obj.a = [obj];
+  obj.b = {};
+  obj.b.inner = obj.b;
+  obj.b.obj = obj;
+
+  assert.strictEqual(
+    inspect(obj),
+    '<ref *1> {\n' +
+    '  a: [ [Circular *1] ],\n' +
+    '  b: <ref *2> { inner: [Circular *2], obj: [Circular *1] }\n' +
+    '}'
+  );
 }
 
 // Test Promise.
@@ -1094,6 +1121,47 @@ if (typeof Symbol !== 'undefined') {
     '[Set Iterator] { 1, ... 1 more item, extra: true }');
 }
 
+// Minimal inspection should still return as much information as possible about
+// the constructor and Symbol.toStringTag.
+{
+  class Foo {
+    get [Symbol.toStringTag]() {
+      return 'ABC';
+    }
+  }
+  const a = new Foo();
+  assert.strictEqual(inspect(a, { depth: -1 }), 'Foo [ABC] {}');
+  a.foo = true;
+  assert.strictEqual(inspect(a, { depth: -1 }), '[Foo [ABC]]');
+  Object.defineProperty(a, Symbol.toStringTag, {
+    value: 'Foo',
+    configurable: true,
+    writable: true
+  });
+  assert.strictEqual(inspect(a, { depth: -1 }), '[Foo]');
+  delete a[Symbol.toStringTag];
+  Object.setPrototypeOf(a, null);
+  assert.strictEqual(inspect(a, { depth: -1 }), '[Foo: null prototype]');
+  delete a.foo;
+  assert.strictEqual(inspect(a, { depth: -1 }), '[Foo: null prototype] {}');
+  Object.defineProperty(a, Symbol.toStringTag, {
+    value: 'ABC',
+    configurable: true
+  });
+  assert.strictEqual(
+    inspect(a, { depth: -1 }),
+    '[Foo: null prototype] [ABC] {}'
+  );
+  Object.defineProperty(a, Symbol.toStringTag, {
+    value: 'Foo',
+    configurable: true
+  });
+  assert.strictEqual(
+    inspect(a, { depth: -1 }),
+    '[Object: null prototype] [Foo] {}'
+  );
+}
+
 // Test alignment of items in container.
 // Assumes that the first numeric character is the start of an item.
 {
@@ -1156,6 +1224,10 @@ if (typeof Symbol !== 'undefined') {
     util.inspect({ a: { b: new ArraySubclass([1, [2], 3]) } }, { depth: 1 }),
     '{ a: { b: [ArraySubclass] } }'
   );
+  assert.strictEqual(
+    util.inspect(Object.setPrototypeOf(x, null)),
+    '[ObjectSubclass: null prototype] { foo: 42 }'
+  );
 }
 
 // Empty and circular before depth.
@@ -1169,7 +1241,9 @@ if (typeof Symbol !== 'undefined') {
   arr[0][0][0] = { a: 2 };
   assert.strictEqual(util.inspect(arr), '[ [ [ [Object] ] ] ]');
   arr[0][0][0] = arr;
-  assert.strictEqual(util.inspect(arr), '[ [ [ [Circular] ] ] ]');
+  assert.strictEqual(util.inspect(arr), '<ref *1> [ [ [ [Circular *1] ] ] ]');
+  arr[0][0][0] = arr[0][0];
+  assert.strictEqual(util.inspect(arr), '[ [ <ref *1> [ [Circular *1] ] ] ]');
 }
 
 // Corner cases.
@@ -1563,7 +1637,7 @@ util.inspect(process);
     '      2,',
     '      [length]: 2',
     '    ]',
-    '  } => [Map Iterator] {',
+    '  } => <ref *1> [Map Iterator] {',
     '    Uint8Array [',
     '      [BYTES_PER_ELEMENT]: 1,',
     '      [length]: 0,',
@@ -1574,7 +1648,7 @@ util.inspect(process);
     '        foo: true',
     '      }',
     '    ],',
-    '    [Circular]',
+    '    [Circular *1]',
     '  },',
     '  [size]: 2',
     '}'
@@ -1602,7 +1676,7 @@ util.inspect(process);
     '    [byteOffset]: 0,',
     '    [buffer]: ArrayBuffer { byteLength: 0, foo: true }',
     '  ],',
-    '  [Set Iterator] { [ 1, 2, [length]: 2 ] } => [Map Iterator] {',
+    '  [Set Iterator] { [ 1, 2, [length]: 2 ] } => <ref *1> [Map Iterator] {',
     '    Uint8Array [',
     '      [BYTES_PER_ELEMENT]: 1,',
     '      [length]: 0,',
@@ -1610,7 +1684,7 @@ util.inspect(process);
     '      [byteOffset]: 0,',
     '      [buffer]: ArrayBuffer { byteLength: 0, foo: true }',
     '    ],',
-    '    [Circular]',
+    '    [Circular *1]',
     '  },',
     '  [size]: 2',
     '}'
@@ -1642,7 +1716,7 @@ util.inspect(process);
     '  [Set Iterator] {',
     '    [ 1,',
     '      2,',
-    '      [length]: 2 ] } => [Map Iterator] {',
+    '      [length]: 2 ] } => <ref *1> [Map Iterator] {',
     '    Uint8Array [',
     '      [BYTES_PER_ELEMENT]: 1,',
     '      [length]: 0,',
@@ -1651,7 +1725,7 @@ util.inspect(process);
     '      [buffer]: ArrayBuffer {',
     '        byteLength: 0,',
     '        foo: true } ],',
-    '    [Circular] },',
+    '    [Circular *1] },',
     '  [size]: 2 }'
   ].join('\n');
 

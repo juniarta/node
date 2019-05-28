@@ -1,13 +1,13 @@
 # N-API
 
-<!--introduced_in=v7.10.0-->
+<!--introduced_in=v8.0.0-->
 <!-- type=misc -->
 
 > Stability: 2 - Stable
 
 N-API (pronounced N as in the letter, followed by API)
 is an API for building native Addons. It is independent from
-the underlying JavaScript runtime (ex V8) and is maintained as part of
+the underlying JavaScript runtime (for example, V8) and is maintained as part of
 Node.js itself. This API will be Application Binary Interface (ABI) stable
 across versions of Node.js. It is intended to insulate Addons from
 changes in the underlying JavaScript engine and allow modules
@@ -148,10 +148,11 @@ available to the module code.
 |       | 1       | 2        | 3        | 4        |
 |:-----:|:-------:|:--------:|:--------:|:--------:|
 | v6.x  |         |          | v6.14.2* |          |
-| v8.x  | v8.0.0* | v8.10.0* | v8.11.2  |          |
+| v8.x  | v8.0.0* | v8.10.0* | v8.11.2  | v8.16.0  |
 | v9.x  | v9.0.0* | v9.3.0*  | v9.11.0* |          |
 | v10.x |         |          | v10.0.0  |          |
 | v11.x |         |          | v11.0.0  | v11.8.0  |
+| v12.x |         |          |          | v12.0.0  |
 
 \* Indicates that the N-API version was released as experimental
 
@@ -221,6 +222,10 @@ consumed by the various APIs. These APIs should be treated as opaque,
 introspectable only with other N-API calls.
 
 ### napi_status
+<!-- YAML
+added: v8.0.0
+napiVersion: 1
+-->
 Integral status code indicating the success or failure of a N-API call.
 Currently, the following status codes are supported.
 ```C
@@ -250,6 +255,10 @@ If additional information is required upon an API returning a failed status,
 it can be obtained by calling `napi_get_last_error_info`.
 
 ### napi_extended_error_info
+<!-- YAML
+added: v8.0.0
+napiVersion: 1
+-->
 ```C
 typedef struct {
   const char* error_message;
@@ -282,16 +291,20 @@ not allowed.
 This is an opaque pointer that is used to represent a JavaScript value.
 
 ### napi_threadsafe_function
-
-> Stability: 2 - Stable
+<!-- YAML
+added: v10.6.0
+napiVersion: 4
+-->
 
 This is an opaque pointer that represents a JavaScript function which can be
 called asynchronously from multiple threads via
 `napi_call_threadsafe_function()`.
 
 ### napi_threadsafe_function_release_mode
-
-> Stability: 2 - Stable
+<!-- YAML
+added: v10.6.0
+napiVersion: 4
+-->
 
 A value to be given to `napi_release_threadsafe_function()` to indicate whether
 the thread-safe function is to be closed immediately (`napi_tsfn_abort`) or
@@ -305,8 +318,10 @@ typedef enum {
 ```
 
 ### napi_threadsafe_function_call_mode
-
-> Stability: 2 - Stable
+<!-- YAML
+added: v10.6.0
+napiVersion: 4
+-->
 
 A value to be given to `napi_call_threadsafe_function()` to indicate whether
 the call should block whenever the queue associated with the thread-safe
@@ -338,10 +353,18 @@ longer referenced from the current stack frame.
 For more details, review the [Object Lifetime Management][].
 
 #### napi_escapable_handle_scope
+<!-- YAML
+added: v8.0.0
+napiVersion: 1
+-->
 Escapable handle scopes are a special type of handle scope to return values
 created within a particular handle scope to a parent scope.
 
 #### napi_ref
+<!-- YAML
+added: v8.0.0
+napiVersion: 1
+-->
 This is the abstraction to use to reference a `napi_value`. This allows for
 users to manage the lifetimes of JavaScript values, including defining their
 minimum lifetimes explicitly.
@@ -350,11 +373,19 @@ For more details, review the [Object Lifetime Management][].
 
 ### N-API Callback types
 #### napi_callback_info
+<!-- YAML
+added: v8.0.0
+napiVersion: 1
+-->
 Opaque datatype that is passed to a callback function. It can be used for
 getting additional information about the context in which the callback was
 invoked.
 
 #### napi_callback
+<!-- YAML
+added: v8.0.0
+napiVersion: 1
+-->
 Function pointer type for user-provided native functions which are to be
 exposed to JavaScript via N-API. Callback functions should satisfy the
 following signature:
@@ -363,6 +394,10 @@ typedef napi_value (*napi_callback)(napi_env, napi_callback_info);
 ```
 
 #### napi_finalize
+<!-- YAML
+added: v8.0.0
+napiVersion: 1
+-->
 Function pointer type for add-on provided functions that allow the user to be
 notified when externally-owned data is ready to be cleaned up because the
 object with which it was associated with, has been garbage-collected. The user
@@ -377,6 +412,10 @@ typedef void (*napi_finalize)(napi_env env,
 ```
 
 #### napi_async_execute_callback
+<!-- YAML
+added: v8.0.0
+napiVersion: 1
+-->
 Function pointer used with functions that support asynchronous
 operations. Callback functions must satisfy the following signature:
 
@@ -390,6 +429,10 @@ JavaScript objects. Most often, any code that needs to make N-API
 calls should be made in `napi_async_complete_callback` instead.
 
 #### napi_async_complete_callback
+<!-- YAML
+added: v8.0.0
+napiVersion: 1
+-->
 Function pointer used with functions that support asynchronous
 operations. Callback functions must satisfy the following signature:
 
@@ -400,8 +443,10 @@ typedef void (*napi_async_complete_callback)(napi_env env,
 ```
 
 #### napi_threadsafe_function_call_js
-
-> Stability: 2 - Stable
+<!-- YAML
+added: v10.6.0
+napiVersion: 4
+-->
 
 Function pointer used with asynchronous thread-safe function calls. The callback
 will be called on the main thread. Its purpose is to use a data item arriving
@@ -467,6 +512,10 @@ In order to retrieve this information [`napi_get_last_error_info`][]
 is provided which returns a `napi_extended_error_info` structure.
 The format of the `napi_extended_error_info` structure is as follows:
 
+<!-- YAML
+added: v10.6.0
+napiVersion: 4
+-->
 ```C
 typedef struct napi_extended_error_info {
   const char* error_message;
@@ -4060,7 +4109,8 @@ napi_status napi_queue_async_work(napi_env env,
 Returns `napi_ok` if the API succeeded.
 
 This API requests that the previously allocated work be scheduled
-for execution.
+for execution. Once it returns successfully, this API must not be called again
+with the same `napi_async_work` item or the result will be undefined.
 
 ### napi_cancel_async_work
 <!-- YAML
@@ -4598,8 +4648,6 @@ prevent the event loop from exiting. The APIs `napi_ref_threadsafe_function` and
 
 ### napi_create_threadsafe_function
 
-> Stability: 2 - Stable
-
 <!-- YAML
 added: v10.6.0
 napiVersion: 4
@@ -4642,8 +4690,6 @@ parameters and with `undefined` as its `this` value.
 
 ### napi_get_threadsafe_function_context
 
-> Stability: 2 - Stable
-
 <!-- YAML
 added: v10.6.0
 napiVersion: 4
@@ -4660,8 +4706,6 @@ napi_get_threadsafe_function_context(napi_threadsafe_function func,
 This API may be called from any thread which makes use of `func`.
 
 ### napi_call_threadsafe_function
-
-> Stability: 2 - Stable
 
 <!-- YAML
 added: v10.6.0
@@ -4690,8 +4734,6 @@ This API may be called from any thread which makes use of `func`.
 
 ### napi_acquire_threadsafe_function
 
-> Stability: 2 - Stable
-
 <!-- YAML
 added: v10.6.0
 napiVersion: 4
@@ -4712,8 +4754,6 @@ it.
 This API may be called from any thread which will start making use of `func`.
 
 ### napi_release_threadsafe_function
-
-> Stability: 2 - Stable
 
 <!-- YAML
 added: v10.6.0
@@ -4742,8 +4782,6 @@ This API may be called from any thread which will stop making use of `func`.
 
 ### napi_ref_threadsafe_function
 
-> Stability: 2 - Stable
-
 <!-- YAML
 added: v10.6.0
 napiVersion: 4
@@ -4763,8 +4801,6 @@ also idempotent.
 This API may only be called from the main thread.
 
 ### napi_unref_threadsafe_function
-
-> Stability: 2 - Stable
 
 <!-- YAML
 added: v10.6.0

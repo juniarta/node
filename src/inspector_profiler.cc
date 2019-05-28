@@ -2,9 +2,12 @@
 #include <sstream>
 #include "base_object-inl.h"
 #include "debug_utils.h"
+#include "diagnosticfilename-inl.h"
+#include "memory_tracker-inl.h"
 #include "node_file.h"
 #include "node_internals.h"
 #include "v8-inspector.h"
+#include "util-inl.h"
 
 namespace node {
 namespace profiler {
@@ -22,16 +25,6 @@ using v8::String;
 using v8::Value;
 
 using v8_inspector::StringView;
-
-#ifdef _WIN32
-const char* const kPathSeparator = "\\/";
-/* MAX_PATH is in characters, not bytes. Make sure we have enough headroom. */
-#define CWD_BUFSIZE (MAX_PATH * 4)
-#else
-#include <climits>  // PATH_MAX on Solaris.
-const char* const kPathSeparator = "/";
-#define CWD_BUFSIZE (PATH_MAX)
-#endif
 
 V8ProfilerConnection::V8ProfilerConnection(Environment* env)
     : session_(env->inspector_agent()->Connect(
@@ -103,7 +96,7 @@ void V8ProfilerConnection::V8ProfilerSessionDelegate::SendMessageToFrontend(
                               NewStringType::kNormal,
                               message.length())
            .ToLocal(&message_str)) {
-    fprintf(stderr, "Failed to covert %s profile message\n", type);
+    fprintf(stderr, "Failed to convert %s profile message\n", type);
     return;
   }
 
@@ -265,6 +258,44 @@ void V8CpuProfilerConnection::End() {
   DispatchMessage("Profiler.stop");
 }
 
+std::string V8HeapProfilerConnection::GetDirectory() const {
+  return env()->heap_prof_dir();
+}
+
+std::string V8HeapProfilerConnection::GetFilename() const {
+  return env()->heap_prof_name();
+}
+
+MaybeLocal<Object> V8HeapProfilerConnection::GetProfile(Local<Object> result) {
+  Local<Value> profile_v;
+  if (!result
+           ->Get(env()->context(),
+                 FIXED_ONE_BYTE_STRING(env()->isolate(), "profile"))
+           .ToLocal(&profile_v)) {
+    fprintf(stderr, "'profile' from heap profile result is undefined\n");
+    return MaybeLocal<Object>();
+  }
+  if (!profile_v->IsObject()) {
+    fprintf(stderr, "'profile' from heap profile result is not an Object\n");
+    return MaybeLocal<Object>();
+  }
+  return profile_v.As<Object>();
+}
+
+void V8HeapProfilerConnection::Start() {
+  DispatchMessage("HeapProfiler.enable");
+  std::string params = R"({ "samplingInterval": )";
+  params += std::to_string(env()->heap_prof_interval());
+  params += " }";
+  DispatchMessage("HeapProfiler.startSampling", params.c_str());
+}
+
+void V8HeapProfilerConnection::End() {
+  CHECK_EQ(ending_, false);
+  ending_ = true;
+  DispatchMessage("HeapProfiler.stopSampling");
+}
+
 // For now, we only support coverage profiling, but we may add more
 // in the future.
 void EndStartedProfilers(Environment* env) {
@@ -272,6 +303,12 @@ void EndStartedProfilers(Environment* env) {
   V8ProfilerConnection* connection = env->cpu_profiler_connection();
   if (connection != nullptr && !connection->ending()) {
     Debug(env, DebugCategory::INSPECTOR_PROFILER, "Ending cpu profiling\n");
+    connection->End();
+  }
+
+  connection = env->heap_profiler_connection();
+  if (connection != nullptr && !connection->ending()) {
+    Debug(env, DebugCategory::INSPECTOR_PROFILER, "Ending heap profiling\n");
     connection->End();
   }
 
@@ -284,8 +321,8 @@ void EndStartedProfilers(Environment* env) {
 }
 
 std::string GetCwd() {
-  char cwd[CWD_BUFSIZE];
-  size_t size = CWD_BUFSIZE;
+  char cwd[PATH_MAX_BYTES];
+  size_t size = PATH_MAX_BYTES;
   int err = uv_cwd(cwd, &size);
   // This can fail if the cwd is deleted.
   // TODO(joyeecheung): store this in the Environment during Environment
@@ -319,6 +356,20 @@ void StartProfilers(Environment* env) {
     env->set_cpu_profiler_connection(
         std::make_unique<V8CpuProfilerConnection>(env));
     env->cpu_profiler_connection()->Start();
+  }
+  if (env->options()->heap_prof) {
+    const std::string& dir = env->options()->heap_prof_dir;
+    env->set_heap_prof_interval(env->options()->heap_prof_interval);
+    env->set_heap_prof_dir(dir.empty() ? GetCwd() : dir);
+    if (env->options()->heap_prof_name.empty()) {
+      DiagnosticFilename filename(env, "Heap", "heapprofile");
+      env->set_heap_prof_name(*filename);
+    } else {
+      env->set_heap_prof_name(env->options()->heap_prof_name);
+    }
+    env->set_heap_profiler_connection(
+        std::make_unique<profiler::V8HeapProfilerConnection>(env));
+    env->heap_profiler_connection()->Start();
   }
 }
 

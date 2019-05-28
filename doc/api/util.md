@@ -220,13 +220,15 @@ as a `printf`-like format string which can contain zero or more format
 specifiers. Each specifier is replaced with the converted value from the
 corresponding argument. Supported specifiers are:
 
-* `%s` - `String` will be used to convert all values except `BigInt` and
-  `Object`. `BigInt` values will be represented with an `n` and Objects are
-  inspected using `util.inspect()` with options
-  `{ depth: 0, colors: false, compact: 3 }`.
-* `%d` - `Number` will be used to convert all values except `BigInt`.
-* `%i` - `parseInt(value, 10)` is used for all values except `BigInt`.
-* `%f` - `parseFloat(value)` is used for all values.
+* `%s` - `String` will be used to convert all values except `BigInt`, `Object`
+  and `-0`. `BigInt` values will be represented with an `n` and Objects that
+  have no user defined `toString` function are inspected using `util.inspect()`
+  with options `{ depth: 0, colors: false, compact: 3 }`.
+* `%d` - `Number` will be used to convert all values except `BigInt` and
+  `Symbol`.
+* `%i` - `parseInt(value, 10)` is used for all values except `BigInt` and
+  `Symbol`.
+* `%f` - `parseFloat(value)` is used for all values expect `Symbol`.
 * `%j` - JSON. Replaced with the string `'[Circular]'` if the argument contains
   circular references.
 * `%o` - `Object`. A string representation of an object with generic JavaScript
@@ -390,6 +392,9 @@ stream.write('With ES6');
 <!-- YAML
 added: v0.3.0
 changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/27685
+    description: Circular references now include a marker to the reference.
   - version: v12.0.0
     pr-url: https://github.com/nodejs/node/pull/27109
     description: The `compact` options default is changed to `3` and the
@@ -512,6 +517,24 @@ util.inspect(new Bar()); // 'Bar {}'
 util.inspect(baz);       // '[foo] {}'
 ```
 
+Circular references point to their anchor by using a reference index:
+
+```js
+const { inspect } = require('util');
+
+const obj = {};
+obj.a = [obj];
+obj.b = {};
+obj.b.inner = obj.b;
+obj.b.obj = obj;
+
+console.log(inspect(obj));
+// <ref *1> {
+//   a: [ [Circular *1] ],
+//   b: <ref *2> { inner: [Circular *2], obj: [Circular *1] }
+// }
+```
+
 The following example inspects all properties of the `util` object:
 
 ```js
@@ -534,8 +557,6 @@ const o = {
   b: new Map([['za', 1], ['zb', 'test']])
 };
 console.log(util.inspect(o, { compact: true, depth: 5, breakLength: 80 }));
-
-// This will print
 
 // { a:
 //   [ 1,

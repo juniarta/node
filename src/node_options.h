@@ -91,9 +91,9 @@ class DebugOptions : public Options {
 class EnvironmentOptions : public Options {
  public:
   bool abort_on_uncaught_exception = false;
-  bool experimental_json_modules = false;
   bool experimental_modules = false;
   std::string es_module_specifier_resolution;
+  bool experimental_wasm_modules = false;
   std::string module_type;
   std::string experimental_policy;
   bool experimental_repl_await = false;
@@ -115,6 +115,11 @@ class EnvironmentOptions : public Options {
   uint64_t cpu_prof_interval = kDefaultCpuProfInterval;
   std::string cpu_prof_name;
   bool cpu_prof = false;
+  std::string heap_prof_dir;
+  std::string heap_prof_name;
+  static const uint64_t kDefaultHeapProfInterval = 512 * 1024;
+  uint64_t heap_prof_interval = kDefaultHeapProfInterval;
+  bool heap_prof = false;
 #endif  // HAVE_INSPECTOR
   std::string redirect_warnings;
   bool throw_deprecation = false;

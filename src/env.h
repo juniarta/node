@@ -73,6 +73,7 @@ class AgentWriterHandle;
 namespace profiler {
 class V8CoverageConnection;
 class V8CpuProfilerConnection;
+class V8HeapProfilerConnection;
 }  // namespace profiler
 #endif  // HAVE_INSPECTOR
 
@@ -130,6 +131,7 @@ constexpr size_t kFsStatsBufferLength = kFsStatsFieldsNumber * 2;
 // for the sake of convenience.
 #define PER_ISOLATE_SYMBOL_PROPERTIES(V)                                      \
   V(handle_onclose_symbol, "handle_onclose")                                  \
+  V(no_message_symbol, "no_message_symbol")                                   \
   V(oninit_symbol, "oninit")                                                  \
   V(owner_symbol, "owner")                                                    \
 
@@ -252,6 +254,7 @@ constexpr size_t kFsStatsBufferLength = kFsStatsFieldsNumber * 2;
   V(onexit_string, "onexit")                                                   \
   V(onhandshakedone_string, "onhandshakedone")                                 \
   V(onhandshakestart_string, "onhandshakestart")                               \
+  V(onkeylog_string, "onkeylog")                                               \
   V(onmessage_string, "onmessage")                                             \
   V(onnewsession_string, "onnewsession")                                       \
   V(onocspresponse_string, "onocspresponse")                                   \
@@ -400,6 +403,7 @@ constexpr size_t kFsStatsBufferLength = kFsStatsFieldsNumber * 2;
   V(native_module_require, v8::Function)                                       \
   V(performance_entry_callback, v8::Function)                                  \
   V(performance_entry_template, v8::Function)                                  \
+  V(prepare_stack_trace_callback, v8::Function)                                \
   V(process_object, v8::Object)                                                \
   V(primordials, v8::Object)                                                   \
   V(promise_reject_callback, v8::Function)                                     \
@@ -885,7 +889,7 @@ class Environment : public MemoryRetainer {
 
   inline IsolateData* isolate_data() const;
 
-  // Utilites that allocate memory using the Isolate's ArrayBuffer::Allocator.
+  // Utilities that allocate memory using the Isolate's ArrayBuffer::Allocator.
   // In particular, using AllocateManaged() will provide a RAII-style object
   // with easy conversion to `Buffer` and `ArrayBuffer` objects.
   inline AllocatedBuffer AllocateManaged(size_t size, bool checked = true);
@@ -1148,6 +1152,20 @@ class Environment : public MemoryRetainer {
 
   inline void set_cpu_prof_dir(const std::string& dir);
   inline const std::string& cpu_prof_dir() const;
+
+  void set_heap_profiler_connection(
+      std::unique_ptr<profiler::V8HeapProfilerConnection> connection);
+  profiler::V8HeapProfilerConnection* heap_profiler_connection();
+
+  inline void set_heap_prof_name(const std::string& name);
+  inline const std::string& heap_prof_name() const;
+
+  inline void set_heap_prof_dir(const std::string& dir);
+  inline const std::string& heap_prof_dir() const;
+
+  inline void set_heap_prof_interval(uint64_t interval);
+  inline uint64_t heap_prof_interval() const;
+
 #endif  // HAVE_INSPECTOR
 
  private:
@@ -1187,6 +1205,10 @@ class Environment : public MemoryRetainer {
   std::string cpu_prof_dir_;
   std::string cpu_prof_name_;
   uint64_t cpu_prof_interval_;
+  std::unique_ptr<profiler::V8HeapProfilerConnection> heap_profiler_connection_;
+  std::string heap_prof_dir_;
+  std::string heap_prof_name_;
+  uint64_t heap_prof_interval_;
 #endif  // HAVE_INSPECTOR
 
   std::shared_ptr<EnvironmentOptions> options_;

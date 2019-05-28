@@ -907,8 +907,9 @@ the value is `undefined`, the stream is not yet ready for use.
 
 All [`Http2Stream`][] instances are destroyed either when:
 
-* An `RST_STREAM` frame for the stream is received by the connected peer.
-* The `http2stream.close()` method is called.
+* An `RST_STREAM` frame for the stream is received by the connected peer,
+  and pending data has been read.
+* The `http2stream.close()` method is called, and pending data has been read.
 * The `http2stream.destroy()` or `http2session.destroy()` methods are called.
 
 When an `Http2Stream` instance is destroyed, an attempt will be made to send an
@@ -1722,11 +1723,15 @@ server.on('stream', (stream, headers, flags) => {
 #### Event: 'timeout'
 <!-- YAML
 added: v8.4.0
+changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/27558
+    description: The default timeout changed from 120s to 0 (no timeout).
 -->
 
 The `'timeout'` event is emitted when there is no activity on the Server for
 a given number of milliseconds set using `http2server.setTimeout()`.
-**Default:** 2 minutes.
+**Default:** 0 (no timeout)
 
 #### server.close([callback])
 <!-- YAML
@@ -1743,9 +1748,13 @@ consider also using [`http2session.close()`] on active sessions.
 #### server.setTimeout([msecs][, callback])
 <!-- YAML
 added: v8.4.0
+changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/27558
+    description: The default timeout changed from 120s to 0 (no timeout).
 -->
 
-* `msecs` {number} **Default:** `120000` (2 minutes)
+* `msecs` {number} **Default:** 0 (no timeout)
 * `callback` {Function}
 * Returns: {Http2Server}
 
@@ -1904,6 +1913,10 @@ error will be thrown.
 <!-- YAML
 added: v8.4.0
 changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/27782
+    description: The `options` parameter now supports `net.createServer()`
+                 options.
   - version: v8.9.3
     pr-url: https://github.com/nodejs/node/pull/17105
     description: Added the `maxOutstandingPings` option with a default limit of
@@ -1979,6 +1992,7 @@ changes:
     `Http2ServerResponse` class to use.
     Useful for extending the original `Http2ServerResponse`.
     **Default:** `Http2ServerResponse`.
+  * ...: Any [`net.createServer()`][] option can be provided.
 * `onRequestHandler` {Function} See [Compatibility API][]
 * Returns: {Http2Server}
 
@@ -3458,6 +3472,7 @@ following additional properties:
 [`http2.createServer()`]: #http2_http2_createserver_options_onrequesthandler
 [`http2session.close()`]: #http2_http2session_close_callback
 [`http2stream.pushStream()`]: #http2_http2stream_pushstream_headers_options_callback
+[`net.createServer()`]: net.html#net_net_createserver_options_connectionlistener
 [`net.Server.close()`]: net.html#net_server_close_callback
 [`net.Socket.bufferSize`]: net.html#net_socket_buffersize
 [`net.Socket.prototype.ref()`]: net.html#net_socket_ref

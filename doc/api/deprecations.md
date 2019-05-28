@@ -1364,7 +1364,7 @@ The `NODE_REPL_MODE` environment variable is used to set the underlying
 removed. Please use `sloppy` instead.
 
 <a id="DEP0066"></a>
-### DEP0066: outgoingMessage.\_headers, outgoingMessage.\_headerNames
+### DEP0066: OutgoingMessage.prototype.\_headers, OutgoingMessage.prototype.\_headerNames
 <!-- YAML
 changes:
   - version: v12.0.0
@@ -1377,15 +1377,18 @@ changes:
 
 Type: Runtime
 
-The `http` module `outgoingMessage._headers` and `outgoingMessage._headerNames`
-properties are deprecated. Use one of the public methods
-(e.g. `outgoingMessage.getHeader()`, `outgoingMessage.getHeaders()`,
-`outgoingMessage.getHeaderNames()`, `outgoingMessage.hasHeader()`,
-`outgoingMessage.removeHeader()`, `outgoingMessage.setHeader()`) for working
-with outgoing headers.
+The `http` module `OutgoingMessage.prototype._headers` and
+`OutgoingMessage.prototype._headerNames` properties are deprecated. Use one of
+the public methods (e.g. `OutgoingMessage.prototype.getHeader()`,
+`OutgoingMessage.prototype.getHeaders()`,
+`OutgoingMessage.prototype.getHeaderNames()`,
+`OutgoingMessage.prototype.hasHeader()`,
+`OutgoingMessage.prototype.removeHeader()`,
+`OutgoingMessage.prototype.setHeader()`) for working with outgoing headers.
 
-The `outgoingMessage._headers` and `outgoingMessage._headerNames` properties
-were never documented as officially supported properties.
+The `OutgoingMessage.prototype._headers` and
+`OutgoingMessage.prototype._headerNames` properties were never documented as
+officially supported properties.
 
 <a id="DEP0067"></a>
 ### DEP0067: OutgoingMessage.prototype.\_renderHeaders
@@ -2452,6 +2455,22 @@ Type: Documentation-only
 
 Module.createRequireFromPath() is deprecated. Please use [`module.createRequire()`][] instead.
 
+<a id="DEP0131"></a>
+### DEP0131: Legacy HTTP parser
+<!-- YAML
+changes:
+  - version: v12.3.0
+    pr-url: https://github.com/nodejs/node/pull/27498
+    description: Documentation-only.
+-->
+
+Type: Documentation-only
+
+The legacy HTTP parser, used by default in versions of Node.js prior to 12.0.0,
+is deprecated. This deprecation applies to users of the
+[`--http-parser=legacy`][] command-line flag.
+
+[`--http-parser=legacy`]: cli.html#cli_http_parser_library
 [`--pending-deprecation`]: cli.html#cli_pending_deprecation
 [`Buffer.allocUnsafeSlow(size)`]: buffer.html#buffer_class_method_buffer_allocunsafeslow_size
 [`Buffer.from(array)`]: buffer.html#buffer_class_method_buffer_from_array

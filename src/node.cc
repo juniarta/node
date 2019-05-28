@@ -24,6 +24,8 @@
 // ========== local headers ==========
 
 #include "debug_utils.h"
+#include "env-inl.h"
+#include "memory_tracker-inl.h"
 #include "node_binding.h"
 #include "node_internals.h"
 #include "node_main_instance.h"
@@ -68,6 +70,17 @@
 #ifdef NODE_REPORT
 #include "node_report.h"
 #endif
+
+#if defined(__APPLE__) || defined(__linux__)
+#define NODE_USE_V8_WASM_TRAP_HANDLER 1
+#else
+#define NODE_USE_V8_WASM_TRAP_HANDLER 0
+#endif
+
+#if NODE_USE_V8_WASM_TRAP_HANDLER
+#include <atomic>
+#include "v8-wasm-trap-handler-posix.h"
+#endif  // NODE_USE_V8_WASM_TRAP_HANDLER
 
 // ========== global C headers ==========
 
@@ -176,17 +189,12 @@ void WaitForInspectorDisconnect(Environment* env) {
 #endif
 }
 
-void SignalExit(int signo) {
+#ifdef __POSIX__
+void SignalExit(int signo, siginfo_t* info, void* ucontext) {
   uv_tty_reset_mode();
-#ifdef __FreeBSD__
-  // FreeBSD has a nasty bug, see RegisterSignalHandler for details
-  struct sigaction sa;
-  memset(&sa, 0, sizeof(sa));
-  sa.sa_handler = SIG_DFL;
-  CHECK_EQ(sigaction(signo, &sa, nullptr), 0);
-#endif
   raise(signo);
 }
+#endif  // __POSIX__
 
 MaybeLocal<Value> ExecuteBootstrapper(Environment* env,
                                       const char* id,
@@ -330,7 +338,7 @@ MaybeLocal<Value> RunBootstrapping(Environment* env) {
     return MaybeLocal<Value>();
 
   // Make sure that no request or handle is created during bootstrap -
-  // if necessary those should be done in pre-exeuction.
+  // if necessary those should be done in pre-execution.
   // TODO(joyeecheung): print handles/requests before aborting
   CHECK(env->req_wrap_queue()->IsEmpty());
   CHECK(env->handle_wrap_queue()->IsEmpty());
@@ -433,20 +441,40 @@ void LoadEnvironment(Environment* env) {
   USE(StartMainThreadExecution(env));
 }
 
+#if NODE_USE_V8_WASM_TRAP_HANDLER
+static std::atomic<void (*)(int signo, siginfo_t* info, void* ucontext)>
+    previous_sigsegv_action;
+
+void TrapWebAssemblyOrContinue(int signo, siginfo_t* info, void* ucontext) {
+  if (!v8::TryHandleWebAssemblyTrapPosix(signo, info, ucontext)) {
+    auto prev = previous_sigsegv_action.load();
+    if (prev != nullptr) {
+      prev(signo, info, ucontext);
+    } else {
+      uv_tty_reset_mode();
+      raise(signo);
+    }
+  }
+}
+#endif  // NODE_USE_V8_WASM_TRAP_HANDLER
 
 #ifdef __POSIX__
 void RegisterSignalHandler(int signal,
-                           void (*handler)(int signal),
+                           void (*handler)(int signal,
+                                           siginfo_t* info,
+                                           void* ucontext),
                            bool reset_handler) {
+#if NODE_USE_V8_WASM_TRAP_HANDLER
+  if (signal == SIGSEGV) {
+    CHECK(previous_sigsegv_action.is_lock_free());
+    previous_sigsegv_action.store(handler);
+    return;
+  }
+#endif  // NODE_USE_V8_WASM_TRAP_HANDLER
   struct sigaction sa;
   memset(&sa, 0, sizeof(sa));
-  sa.sa_handler = handler;
-#ifndef __FreeBSD__
-  // FreeBSD has a nasty bug with SA_RESETHAND reseting the SA_SIGINFO, that is
-  // in turn set for a libthr wrapper. This leads to a crash.
-  // Work around the issue by manually setting SIG_DFL in the signal handler
+  sa.sa_sigaction = handler;
   sa.sa_flags = reset_handler ? SA_RESETHAND : 0;
-#endif
   sigfillset(&sa.sa_mask);
   CHECK_EQ(sigaction(signal, &sa, nullptr), 0);
 }
@@ -490,13 +518,27 @@ inline void PlatformInit() {
   for (unsigned nr = 1; nr < kMaxSignal; nr += 1) {
     if (nr == SIGKILL || nr == SIGSTOP)
       continue;
-    act.sa_handler = (nr == SIGPIPE) ? SIG_IGN : SIG_DFL;
+    act.sa_handler = (nr == SIGPIPE || nr == SIGXFSZ) ? SIG_IGN : SIG_DFL;
     CHECK_EQ(0, sigaction(nr, &act, nullptr));
   }
 #endif  // !NODE_SHARED_MODE
 
   RegisterSignalHandler(SIGINT, SignalExit, true);
   RegisterSignalHandler(SIGTERM, SignalExit, true);
+
+#if NODE_USE_V8_WASM_TRAP_HANDLER
+  // Tell V8 to disable emitting WebAssembly
+  // memory bounds checks. This means that we have
+  // to catch the SIGSEGV in TrapWebAssemblyOrContinue
+  // and pass the signal context to V8.
+  {
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_sigaction = TrapWebAssemblyOrContinue;
+    CHECK_EQ(sigaction(SIGSEGV, &sa, nullptr), 0);
+  }
+  V8::EnableWebAssemblyTrapHandler(false);
+#endif  // NODE_USE_V8_WASM_TRAP_HANDLER
 
   // Raise the open file descriptor limit.
   struct rlimit lim;

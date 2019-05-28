@@ -1,6 +1,8 @@
+#include "env-inl.h"
 #include "node_errors.h"
 #include "node_process.h"
-#include "util.h"
+
+#include <time.h>  // tzset(), _tzset()
 
 #ifdef __APPLE__
 #include <crt_externs.h>
@@ -28,6 +30,7 @@ using v8::Nothing;
 using v8::Object;
 using v8::ObjectTemplate;
 using v8::PropertyCallbackInfo;
+using v8::PropertyHandlerFlags;
 using v8::String;
 using v8::Value;
 
@@ -62,6 +65,19 @@ namespace per_process {
 Mutex env_var_mutex;
 std::shared_ptr<KVStore> system_environment = std::make_shared<RealEnvStore>();
 }  // namespace per_process
+
+template <typename T>
+void DateTimeConfigurationChangeNotification(Isolate* isolate, const T& key) {
+  if (key.length() == 2 && key[0] == 'T' && key[1] == 'Z') {
+#ifdef __POSIX__
+    tzset();
+#else
+    _tzset();
+#endif
+    auto constexpr time_zone_detection = Isolate::TimeZoneDetection::kRedetect;
+    isolate->DateTimeConfigurationChangeNotification(time_zone_detection);
+  }
+}
 
 Local<String> RealEnvStore::Get(Isolate* isolate,
                                 Local<String> property) const {
@@ -114,6 +130,7 @@ void RealEnvStore::Set(Isolate* isolate,
     SetEnvironmentVariableW(key_ptr, reinterpret_cast<WCHAR*>(*val));
   }
 #endif
+  DateTimeConfigurationChangeNotification(isolate, key);
 }
 
 int32_t RealEnvStore::Query(Isolate* isolate, Local<String> property) const {
@@ -149,6 +166,7 @@ void RealEnvStore::Delete(Isolate* isolate, Local<String> property) {
   WCHAR* key_ptr = reinterpret_cast<WCHAR*>(*key);
   SetEnvironmentVariableW(key_ptr, nullptr);
 #endif
+  DateTimeConfigurationChangeNotification(isolate, key);
 }
 
 Local<Array> RealEnvStore::Enumerate(Isolate* isolate) const {
@@ -377,7 +395,8 @@ MaybeLocal<Object> CreateEnvVarProxy(Local<Context> context,
   EscapableHandleScope scope(isolate);
   Local<ObjectTemplate> env_proxy_template = ObjectTemplate::New(isolate);
   env_proxy_template->SetHandler(NamedPropertyHandlerConfiguration(
-      EnvGetter, EnvSetter, EnvQuery, EnvDeleter, EnvEnumerator, data));
+      EnvGetter, EnvSetter, EnvQuery, EnvDeleter, EnvEnumerator, data,
+      PropertyHandlerFlags::kHasNoSideEffect));
   return scope.EscapeMaybe(env_proxy_template->NewInstance(context));
 }
 }  // namespace node

@@ -184,7 +184,6 @@
       'lib/internal/url.js',
       'lib/internal/util.js',
       'lib/internal/util/comparisons.js',
-      'lib/internal/util/print.js',
       'lib/internal/util/debuglog.js',
       'lib/internal/util/inspect.js',
       'lib/internal/util/inspector.js',
@@ -816,7 +815,7 @@
               # Categories to export.
               '-CAES,BF,BIO,DES,DH,DSA,EC,ECDH,ECDSA,ENGINE,EVP,HMAC,MD4,MD5,'
               'PSK,RC2,RC4,RSA,SHA,SHA0,SHA1,SHA256,SHA512,SOCK,STDIO,TLSEXT,'
-              'FP_API,TLS1_METHOD,TLS1_1_METHOD,TLS1_2_METHOD,SCRYPT,OCSP,'
+              'UI,FP_API,TLS1_METHOD,TLS1_1_METHOD,TLS1_2_METHOD,SCRYPT,OCSP,'
               'NEXTPROTONEG,RMD160,CAST,DEPRECATEDIN_1_1_0,DEPRECATEDIN_1_2_0',
               # Defines.
               '-DWIN32',
@@ -859,6 +858,8 @@
           'action_name': 'node_js2c',
           'process_outputs_as_sources': 1,
           'inputs': [
+            # Put the code first so it's a dependency and can be used for invocation.
+            'tools/js2c.py',
             '<@(library_files)',
             'config.gypi',
             'tools/js2c_macros/check_macros.py'
@@ -878,9 +879,8 @@
             }]
           ],
           'action': [
-            'python', 'tools/js2c.py',
-            '<@(_outputs)',
-            '<@(_inputs)',
+            'python', '<@(_inputs)',
+            '--target', '<@(_outputs)',
           ],
         },
       ],

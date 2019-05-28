@@ -1,11 +1,12 @@
 #include "aliased_buffer.h"
 #include "debug_utils.h"
+#include "memory_tracker-inl.h"
 #include "node.h"
 #include "node_buffer.h"
 #include "node_http2.h"
 #include "node_http2_state.h"
 #include "node_perf.h"
-#include "util.h"
+#include "util-inl.h"
 
 #include <algorithm>
 

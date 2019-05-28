@@ -38,14 +38,6 @@
 
 #include <utility>
 
-#ifdef _WIN32
-/* MAX_PATH is in characters, not bytes. Make sure we have enough headroom. */
-#define CWD_BUFSIZE (MAX_PATH * 4)
-#else
-#include <climits>  // PATH_MAX on Solaris.
-#define CWD_BUFSIZE (PATH_MAX)
-#endif
-
 namespace node {
 
 inline v8::Isolate* IsolateData::isolate() const {
@@ -695,6 +687,41 @@ inline void Environment::set_cpu_prof_dir(const std::string& dir) {
 
 inline const std::string& Environment::cpu_prof_dir() const {
   return cpu_prof_dir_;
+}
+
+inline void Environment::set_heap_profiler_connection(
+    std::unique_ptr<profiler::V8HeapProfilerConnection> connection) {
+  CHECK_NULL(heap_profiler_connection_);
+  std::swap(heap_profiler_connection_, connection);
+}
+
+inline profiler::V8HeapProfilerConnection*
+Environment::heap_profiler_connection() {
+  return heap_profiler_connection_.get();
+}
+
+inline void Environment::set_heap_prof_name(const std::string& name) {
+  heap_prof_name_ = name;
+}
+
+inline const std::string& Environment::heap_prof_name() const {
+  return heap_prof_name_;
+}
+
+inline void Environment::set_heap_prof_dir(const std::string& dir) {
+  heap_prof_dir_ = dir;
+}
+
+inline const std::string& Environment::heap_prof_dir() const {
+  return heap_prof_dir_;
+}
+
+inline void Environment::set_heap_prof_interval(uint64_t interval) {
+  heap_prof_interval_ = interval;
+}
+
+inline uint64_t Environment::heap_prof_interval() const {
+  return heap_prof_interval_;
 }
 
 #endif  // HAVE_INSPECTOR
